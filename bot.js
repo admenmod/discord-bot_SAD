@@ -1,16 +1,16 @@
 const fs = require('fs');
-const path = require('path');
 
-require('./ver.js');
+require('./verm.js');
 
 let {
+	NameSpace, SymbolSpace,
 	createPrivileges, random, JSONcopy,
 	EventEmitter, Scene, Child,
 	Vector2, vec2, VectorN, vecN
 } = globalThis.ver;
 
-require('./ns_objects/code_ns.js');
-let { VirtualEnv } = code_ns;
+require('./ns_objects/virenv_ns.js');
+let { VirtualEnv, Debugger } = virenv_ns;
 
 const DiscordJS = require('discord.js');
 const client = new DiscordJS.Client();
@@ -20,21 +20,41 @@ const config = require('./config.json');
 
 client.on('ready', () => console.log('=== Bot loaded ==='));
 
+// client.generateInvite(['ADMINISTRATOR']).then(console.log);
 
-let virenv = new VirtualEnv('main');
+let botDebugger = new Debugger({
+	log: (...args) => {
+		console.log(...args);
+		bot_module.send('```js\n'+[...args].join(' ')+'\n```');
+	},
+	
+	warn: (...args) => {
+		console.warn(...args);
+		bot_module.send('```js\n'+[...args].join(' ')+'\n```');
+	},
+	
+	error: (...args) => {
+		console.error('\x1b[31m', ...args, '\x1b[0m');
+		bot_module.send('```js\n'+(args[0].stack || [...args].join(' '))+'\n```');
+	}
+});
 
-let bot_module = {};
+
+let virenv = new VirtualEnv('main', {
+	debugger: botDebugger
+});
+
+let bot_module = {
+	send: () => void 0
+};
 virenv.appendModule('bot', api => ({ exports: bot_module, filename: 'bot' }));
 
-virenv.debugger.off('error').on('error', (...args) => {
-	console.error('\x1b[31m', ...args, '\x1b[0m');
-	bot_module.send('```js\n'+args[0].stack+'\n```');
-});
 
 
 let handler = new EventEmitter();
 
 handler.on('cmd', (message, args) => {
+	try {
 	let text = message.content;
 	text = text.replace(/^>cmd\s+/, ''); 
 	
@@ -45,10 +65,12 @@ handler.on('cmd', (message, args) => {
 	bot_module.send = send_;
 	
 	virenv.cmd(text);
+	
+	} catch(err) { botDebugger.console.log(err); };
 });
 
 handler.on('run', (message, args) => {
-	if(!argd[1]) return;
+	if(!args[1]) return;
 	
 	virenv.run(args[1]);
 });
@@ -85,12 +107,11 @@ client.on('message', message => {
 	
 	handler.emit(arr[0], message, arr);
 	
-	} catch(err) { console.log(err); };
+	} catch(err) { botDebugger.console.log(err); };
 });
 
 client.login(process.env.TOKEN);
 console.log('loading...');
-
 
 
 
