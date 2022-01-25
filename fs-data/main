@@ -1,0 +1,1 @@
+{"7780a41ef07a38":"000001 blob 1de06c7e6cf5b7 main.js\n","1de06c7e6cf5b7":"let fs = require('fs');\nglobal.log = console.log;\nlog(fs);"}
